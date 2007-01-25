@@ -19,7 +19,7 @@ $GRAYGROUPLIST='graygrouplist';
 $BLACKLIST='blacklist';
 $LOCKFILE='LockNLog_lockfile';
 
-$BASEDELAY=0.5;
+$BASEDELAY=0;
 $BLACKDELAY=180;
 $WHITEDELAY=0;
 $GRAYBASE=10;
