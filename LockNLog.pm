@@ -4,14 +4,17 @@ use strict;
 
 package LockNLog;
 
+use File::Path;
 use Fcntl qw(:flock SEEK_END O_RDWR O_CREAT);
 use Time::HiRes qw(sleep);
 use DB_File;
 use POSIX qw(strftime);
 
+use vars qw($LOCKNLOGDIR);
 use vars qw($LOGFILENAME $WHITELIST $GRAYLIST $GRAYGROUPLIST $BLACKLIST $LOCKFILE);
 use vars qw($BASEDELAY $BLACKDELAY $WHITEDELAY $GRAYBASE $RENEWLEASE);
 
+$LOCKNLOGDIR='logs';
 $LOGFILENAME='logfile';
 $WHITELIST='whitelist';
 $GRAYLIST='graylist';
@@ -54,7 +57,9 @@ sub logStartNDelay($;$$$$) {
 sub doExt($$) {
 	my($name,$infix)=@_;
 	
-	return $name.$infix.'.txt';
+	mkpath($LOCKNLOGDIR,1,0700);
+	
+	return $LOCKNLOGDIR.'/'.$name.$infix.'.txt';
 }
 
 sub matchIP($$) {
