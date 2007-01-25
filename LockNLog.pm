@@ -10,10 +10,11 @@ use Time::HiRes qw(sleep);
 use DB_File;
 use POSIX qw(strftime);
 
-use vars qw($LOCKNLOGDIR);
+use vars qw($LOCKNLOGDIR $LOCKNLOGMASK);
 use vars qw($LOGFILENAME $WHITELIST $GRAYLIST $GRAYGROUPLIST $BLACKLIST $LOCKFILE);
 use vars qw($BASEDELAY $BLACKDELAY $WHITEDELAY $GRAYBASE $RENEWLEASE);
 
+$LOCKNLOGMASK=0755;
 $LOCKNLOGDIR='logs';
 $LOGFILENAME='logfile';
 $WHITELIST='whitelist';
@@ -57,7 +58,7 @@ sub logStartNDelay($;$$$$) {
 sub doExt($$) {
 	my($name,$infix)=@_;
 	
-	mkpath($LOCKNLOGDIR,1,0700);
+	mkpath($LOCKNLOGDIR,1,$LOCKNLOGMASK);
 	
 	return $LOCKNLOGDIR.'/'.$name.$infix.'.txt';
 }
