@@ -29,15 +29,16 @@ $WHITEDELAY=0;
 $GRAYBASE=10;
 $RENEWLEASE=60*60*24;	# Just a 24h day
 
-sub logStartNDelay($;$$$$);
+sub logStartNDelay($$;$$$$);
 sub logDelay($;$);
-sub logEntry($$;$$$);
+sub logEntry($$$;$$$);
 sub getPrintableNow();
 sub doExt($$;$);
 sub matchIP($$);
+sub JobIdGenerator();
 
-sub logStartNDelay($;$$$$) {
-	my($name,$stage,$ip,$misc,$infix)=@_;
+sub logStartNDelay($$;$$$$) {
+	my($name,$jobid,$stage,$ip,$misc,$infix)=@_;
 	my($delay)=$BASEDELAY;
 	
 	if(!defined($ip) && (exists($ENV{'REMOTE_ADDR'}) || exists($ENV{'HTTP_X_FORWARDED_FOR'}))) {
@@ -46,7 +47,7 @@ sub logStartNDelay($;$$$$) {
 	
 	if(defined($ip)) {
 		$stage='start'  unless(defined($stage));
-		logEntry($name,$stage,$ip,$misc,$infix);
+		logEntry($name,$jobid,$stage,$ip,$misc,$infix);
 		my($ldelay)=logDelay($ip,$infix);
 		$ldelay=$BLACKDELAY  unless(defined($ldelay));
 		$delay+=$ldelay;
@@ -164,8 +165,8 @@ sub logDelay($;$) {
 	return $delay;
 }
 
-sub logEntry($$;$$$) {
-	my($name,$stage,$ip,$misc,$infix)=@_;
+sub logEntry($$$;$$$) {
+	my($name,$jobid,$stage,$ip,$misc,$infix)=@_;
 	
 	if(!defined($ip) && (exists($ENV{'REMOTE_ADDR'}) || exists($ENV{'HTTP_X_FORWARDED_FOR'}))) {
 		$ip=(exists($ENV{'HTTP_X_FORWARDED_FOR'})?$ENV{'HTTP_X_FORWARDED_FOR'}:$ENV{'REMOTE_ADDR'});
@@ -190,7 +191,7 @@ sub logEntry($$;$$$) {
 		
 		if(open(LOGFILE,'>>',$logfilename)) {
 			flock(LOGFILE,LOCK_EX);
-			print LOGFILE $now,"\t",$ip,"\t",$name,"\t",$stage,"\t",$misc,"\n";
+			print LOGFILE $now,"\t",$ip,"\t",$name,"\t",$jobid,"\t",$stage,"\t",$misc,"\n";
 			close(LOGFILE);
 		}
 	}
@@ -205,6 +206,13 @@ sub getPrintableNow() {
 
 	# ISO8601
 	return strftime("%Y-%m-%dT%H:%M:%S", localtime($now)) . $tz;
+}
+
+sub JobIdGenerator()
+{
+	my($subjobid)=@_;
+	
+	return time.'_'.$$;
 }
 
 1;
