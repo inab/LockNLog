@@ -33,7 +33,7 @@ sub logStartNDelay($;$$$$);
 sub logDelay($;$);
 sub logEntry($$;$$$);
 sub getPrintableNow();
-sub doExt($$);
+sub doExt($$;$);
 sub matchIP($$);
 
 sub logStartNDelay($;$$$$) {
@@ -55,12 +55,15 @@ sub logStartNDelay($;$$$$) {
 	sleep($delay);
 }
 
-sub doExt($$) {
-	my($name,$infix)=@_;
+sub doExt($$;$) {
+	my($name,$infix,$suffix)=@_;
 	
 	mkpath($LOCKNLOGDIR,1,$LOCKNLOGMASK);
 	
-	return $LOCKNLOGDIR.'/'.$name.$infix.'.txt';
+	$infix=''  unless(defined($infix));
+	$suffix='.txt'  unless(defined($suffix));
+	
+	return $LOCKNLOGDIR.'/'.$name.$infix.$suffix;
 }
 
 sub matchIP($$) {
