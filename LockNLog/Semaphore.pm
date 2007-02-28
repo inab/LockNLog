@@ -56,7 +56,7 @@ sub new($;$$) {
 sub Init($$$) {
 	my($self,$maxcount,$ejt)=@_;
 	
-	$maxcount=20  unless(defined($maxcount));
+	$maxcount=10  unless(defined($maxcount));
 	croak("Too high monitor value $maxcount")  if($maxcount>255);
 	
 	$ejt=5  unless(defined($ejt));
