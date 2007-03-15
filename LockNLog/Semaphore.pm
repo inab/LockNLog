@@ -72,10 +72,10 @@ sub Init($$$) {
 	local(*LOCKWAIT);
 	
 	# Files to be locked down
+	my($lockuptime)=$self->exlock('UFILE');
 	my($lockwait)=$self->exlock('WFILE');
 	my($lockpids)=$self->exlock('PFILE');
 	my($lockcount)=$self->exlock('CFILE');
-	my($lockuptime)=$self->exlock('UFILE');
 	
 	my($newlock)=undef;
 	my($uptime)=uptime();
@@ -229,9 +229,7 @@ sub Wait($) {
 	$storedcount--;
 
 	print LOCKCOUNT pack('S',$storedcount);
-
 	close(LOCKCOUNT);
-	$self->unlock('CFILE');
 	
 	# Now we have the turn, it is time to mark our presence
 	local(*LOCKPIDS);
@@ -245,6 +243,9 @@ sub Wait($) {
 	print LOCKPIDS join(' ',@ppids);
 	close(LOCKPIDS);
 	$self->unlock('PFILE');
+	
+	# count is redundant related to pids, but count will guard any pids modification
+	$self->unlock('CFILE');
 	
 	# And to erase ourselves from the list
 	$lockwait=$self->exlock('WFILE');
@@ -278,7 +279,6 @@ sub Signal($) {
 	$storedcount++;
 	print LOCKCOUNT pack('S',$storedcount);
 	close(LOCKCOUNT);
-	$self->unlock('CFILE');
 	
 	# Then, removing ourselves from the list
 	local(*LOCKPIDS);
@@ -297,6 +297,9 @@ sub Signal($) {
 	print LOCKPIDS join(' ',@alive);
 	close(LOCKPIDS);
 	$self->unlock('PFILE');
+	
+	# count is redundant related to pids, but count will guard any pids modification
+	$self->unlock('CFILE');
 	
 	# And last, waking up others!
 	local(*LOCKWAIT);
