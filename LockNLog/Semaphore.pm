@@ -14,10 +14,10 @@ use LockNLog;
 # Local variables #
 ###################
 
-my($LOCKCOUNT)='semcount.bin';
-my($LOCKPIDS)='sempids.txt';
-my($LOCKWAIT)='semwait.txt';
-my($LOCKUPTIME)='semuptime.txt';
+my($LOCKCOUNTFILE)='semcount.bin';
+my($LOCKPIDSFILE)='sempids.txt';
+my($LOCKWAITFILE)='semwait.txt';
+my($LOCKUPTIMEFILE)='semuptime.txt';
 
 ##############
 # Prototypes #
@@ -42,7 +42,7 @@ sub new($;$$) {
 	my($self)={};
 	
 	# Creating lock files (if they do not exist)
-	my(@knockers)=startKnockers($self,$LOCKCOUNT,$LOCKPIDS,$LOCKWAIT,$LOCKUPTIME);
+	my(@knockers)=startKnockers($self,$LOCKCOUNTFILE,$LOCKPIDSFILE,$LOCKWAITFILE,$LOCKUPTIMEFILE);
 	
 	croak("Unable to create lock files!!!!")  if(scalar(@knockers) eq 0);
 	($self->{'CFILE'},$self->{'PFILE'},$self->{'WFILE'},$self->{'UFILE'})=@knockers;
@@ -66,10 +66,10 @@ sub Init($$$) {
 	$self->{maxcount}=$maxcount;
 	$self->{sleeptime}=$ejt;
 	
-	local(*LOCKUPTIME);
-	local(*LOCKCOUNT);
-	local(*LOCKPIDS);
-	local(*LOCKWAIT);
+	my($LOCKUPTIME);
+	my($LOCKCOUNT);
+	my($LOCKPIDS);
+	my($LOCKWAIT);
 	
 	# Files to be locked down
 	my($lockuptime)=$self->exlock('UFILE');
@@ -82,9 +82,9 @@ sub Init($$$) {
 	
 	# First, reboot detection
 	if(-e $lockuptime) {
-		open(LOCKUPTIME,'<',$lockuptime) || die "Can't get lock!!!";
-		my($storeduptime)=<LOCKUPTIME>;
-		close(LOCKUPTIME);
+		open($LOCKUPTIME,'<',$lockuptime) || die "Can't get lock!!!";
+		my($storeduptime)=<$LOCKUPTIME>;
+		close($LOCKUPTIME);
 		
 		unless(($storeduptime-10)<=$uptime && $uptime<=($storeduptime+10)) {
 			$newlock=1;
@@ -97,10 +97,10 @@ sub Init($$$) {
 	if(!defined($newlock) && -e $lockcount && ((-s $lockcount) == 2)) {
 		my($storedcount)=undef;
 		my($runcount)=undef;
-		open(LOCKCOUNT,'<',$lockcount) || die "Can't get lock!!!";
+		open($LOCKCOUNT,'<',$lockcount) || die "Can't get lock!!!";
 		my($lect)='';
-		read(LOCKCOUNT,$lect,2);
-		close(LOCKCOUNT);
+		read($LOCKCOUNT,$lect,2);
+		close($LOCKCOUNT);
 		$storedcount=unpack('S',$lect);
 
 		# First checks
@@ -108,9 +108,9 @@ sub Init($$$) {
 			$newlock=1;
 		} else {
 			# let's count running instances
-			open(LOCKPIDS,'<',$lockpids) || die "Can't get lock!!!";
-			my($line)=<LOCKPIDS>;
-			close(LOCKPIDS);
+			open($LOCKPIDS,'<',$lockpids) || die "Can't get lock!!!";
+			my($line)=<$LOCKPIDS>;
+			close($LOCKPIDS);
 
 			$line='' unless(defined($line));
 			my($zombie)=0;
@@ -126,21 +126,21 @@ sub Init($$$) {
 			# There were running zombies, after all
 			if($zombie>0) {
 				# Let's write
-				open(LOCKPIDS,'>',$lockpids) || die "Can't update lock!!!";
-				print LOCKPIDS join(' ',@alive);
-				close(LOCKPIDS);
+				open($LOCKPIDS,'>',$lockpids) || die "Can't update lock!!!";
+				print $LOCKPIDS join(' ',@alive);
+				close($LOCKPIDS);
 				$storedcount+=$zombie;
 
 				# Let's write again
-				open(LOCKCOUNT,'>',$lockcount) || die "Can't update lock!!!";
-				print LOCKCOUNT pack('S',$storedcount);
-				close(LOCKCOUNT);
+				open($LOCKCOUNT,'>',$lockcount) || die "Can't update lock!!!";
+				print $LOCKCOUNT pack('S',$storedcount);
+				close($LOCKCOUNT);
 			}
 
 			# The ones which are waiting
-			open(LOCKWAIT,'<',$lockwait) || die "Can't get lock!!!";
-			$line=<LOCKWAIT>;
-			close(LOCKWAIT);
+			open($LOCKWAIT,'<',$lockwait) || die "Can't get lock!!!";
+			$line=<$LOCKWAIT>;
+			close($LOCKWAIT);
 
 			$line=''  unless(defined($line));
 			$zombie=0;
@@ -156,9 +156,9 @@ sub Init($$$) {
 			# There were waiting zombies, after all
 			if($zombie>0) {
 				# Let's write
-				open(LOCKWAIT,'>',$lockwait) || die "Can't update lock!!!";
-				print LOCKWAIT join(' ',@alive);
-				close(LOCKWAIT);
+				open($LOCKWAIT,'>',$lockwait) || die "Can't update lock!!!";
+				print $LOCKWAIT join(' ',@alive);
+				close($LOCKWAIT);
 			}
 
 			# And some alive ones could be signaled!
@@ -169,19 +169,19 @@ sub Init($$$) {
 	}
 	
 	if(defined($newlock)) {
-		open(LOCKUPTIME,'>',$lockuptime) || die "Can't create lock!!!";
-		print LOCKUPTIME $uptime;
-		close(LOCKUPTIME);
+		open($LOCKUPTIME,'>',$lockuptime) || die "Can't create lock!!!";
+		print $LOCKUPTIME $uptime;
+		close($LOCKUPTIME);
 		
-		open(LOCKCOUNT,'>',$lockcount) || die "Can't create lock!!!";
-		print LOCKCOUNT pack('S',$maxcount);
-		close(LOCKCOUNT);
+		open($LOCKCOUNT,'>',$lockcount) || die "Can't create lock!!!";
+		print $LOCKCOUNT pack('S',$maxcount);
+		close($LOCKCOUNT);
 		
-		open(LOCKPIDS,'>',$lockpids) || die "Can't create lock!!!";
-		close(LOCKPIDS);
+		open($LOCKPIDS,'>',$lockpids) || die "Can't create lock!!!";
+		close($LOCKPIDS);
 		
-		open(LOCKWAIT,'>',$lockwait) || die "Can't create lock!!!";
-		close(LOCKWAIT);
+		open($LOCKWAIT,'>',$lockwait) || die "Can't create lock!!!";
+		close($LOCKWAIT);
 	}
 	$self->unlock('CFILE');
 	$self->unlock('PFILE');
@@ -195,28 +195,28 @@ sub Wait($) {
 	my($self)=@_;
 	
 	# Guilty until the opposite...
-	local(*LOCKWAIT);
+	my($LOCKWAIT);
 	my($lockwait)=$self->exlock('WFILE');
-	open(LOCKWAIT,'+<',$lockwait) || die "Can't wait lock!!!";
-	my($line)=<LOCKWAIT>;
-	seek(LOCKWAIT,0,0);
+	open($LOCKWAIT,'+<',$lockwait) || die "Can't wait lock!!!";
+	my($line)=<$LOCKWAIT>;
+	seek($LOCKWAIT,0,0);
 	$line=''  unless(defined($line));
 	my(@wpids)=split(/ /,$line);
 	push(@wpids,$$);
-	print LOCKWAIT join(' ',@wpids);
-	close(LOCKWAIT);
+	print $LOCKWAIT join(' ',@wpids);
+	close($LOCKWAIT);
 	$self->unlock('WFILE');
 	
 	# Now, the loop where we are waiting our turn
-	local(*LOCKCOUNT);
+	my($LOCKCOUNT);
 	my($lockcount)=$self->{'CFILE'};
-	open(LOCKCOUNT,'+<',$lockcount) || die "Can't wait lock!!!";
+	open($LOCKCOUNT,'+<',$lockcount) || die "Can't wait lock!!!";
 	my($storedcount)=undef;
 	for(;;) {
 		my($lect);
 		$self->exlock('CFILE');
-		read(LOCKCOUNT,$lect,2);
-		seek(LOCKCOUNT,0,0);
+		read($LOCKCOUNT,$lect,2);
+		seek($LOCKCOUNT,0,0);
 		$storedcount=unpack('S',$lect);
 
 		last if($storedcount>0);
@@ -228,20 +228,20 @@ sub Wait($) {
 
 	$storedcount--;
 
-	print LOCKCOUNT pack('S',$storedcount);
-	close(LOCKCOUNT);
+	print $LOCKCOUNT pack('S',$storedcount);
+	close($LOCKCOUNT);
 	
 	# Now we have the turn, it is time to mark our presence
-	local(*LOCKPIDS);
+	my($LOCKPIDS);
 	my($lockpids)=$self->exlock('PFILE');
-	open(LOCKPIDS,'+<',$lockpids) || die "Can't wait lock!!!";
-	$line=<LOCKPIDS>;
-	seek(LOCKPIDS,0,0);
+	open($LOCKPIDS,'+<',$lockpids) || die "Can't wait lock!!!";
+	$line=<$LOCKPIDS>;
+	seek($LOCKPIDS,0,0);
 	$line=''  unless(defined($line));
 	my(@ppids)=split(/ /,$line);
 	push(@ppids,$$);
-	print LOCKPIDS join(' ',@ppids);
-	close(LOCKPIDS);
+	print $LOCKPIDS join(' ',@ppids);
+	close($LOCKPIDS);
 	$self->unlock('PFILE');
 	
 	# count is redundant related to pids, but count will guard any pids modification
@@ -249,9 +249,9 @@ sub Wait($) {
 	
 	# And to erase ourselves from the list
 	$lockwait=$self->exlock('WFILE');
-	open(LOCKWAIT,'<',$lockwait) || die "Can't wait lock!!!";
-	$line=<LOCKWAIT>;
-	close(LOCKWAIT);
+	open($LOCKWAIT,'<',$lockwait) || die "Can't wait lock!!!";
+	$line=<$LOCKWAIT>;
+	close($LOCKWAIT);
 
 	$line=''  unless(defined($line));
 	my(@alive)=();
@@ -259,9 +259,9 @@ sub Wait($) {
 		next if($pid eq $$);
 		push(@alive,$pid);
 	}
-	open(LOCKWAIT,'>',$lockwait) || die "Can't wait lock!!!";
-	print LOCKWAIT join(' ',@alive);
-	close(LOCKWAIT);
+	open($LOCKWAIT,'>',$lockwait) || die "Can't wait lock!!!";
+	print $LOCKWAIT join(' ',@alive);
+	close($LOCKWAIT);
 	$self->unlock('WFILE');
 }
 
@@ -269,23 +269,23 @@ sub Signal($) {
 	my($self)=@_;
 
 	# Updating counter
-	local(*LOCKCOUNT);
+	my($LOCKCOUNT);
 	my($lockcount)=$self->exlock('CFILE');
-	open(LOCKCOUNT,'+<',$lockcount) || die "Can't signal lock!!!";
+	open($LOCKCOUNT,'+<',$lockcount) || die "Can't signal lock!!!";
 	my($lect);
-	read(LOCKCOUNT,$lect,2);
-	seek(LOCKCOUNT,0,0);
+	read($LOCKCOUNT,$lect,2);
+	seek($LOCKCOUNT,0,0);
 	my($storedcount)=unpack('S',$lect);
 	$storedcount++;
-	print LOCKCOUNT pack('S',$storedcount);
-	close(LOCKCOUNT);
+	print $LOCKCOUNT pack('S',$storedcount);
+	close($LOCKCOUNT);
 	
 	# Then, removing ourselves from the list
-	local(*LOCKPIDS);
+	my($LOCKPIDS);
 	my($lockpids)=$self->exlock('PFILE');
-	open(LOCKPIDS,'<',$lockpids) || die "Can't signal lock!!!";
-	my($line)=<LOCKPIDS>;
-	close(LOCKPIDS);
+	open($LOCKPIDS,'<',$lockpids) || die "Can't signal lock!!!";
+	my($line)=<$LOCKPIDS>;
+	close($LOCKPIDS);
 
 	$line=''  unless(defined($line));
 	my(@alive)=();
@@ -293,20 +293,20 @@ sub Signal($) {
 		next if($pid == $$);
 		push(@alive,$pid);
 	}
-	open(LOCKPIDS,'>',$lockpids) || die "Can't signal lock!!!";
-	print LOCKPIDS join(' ',@alive);
-	close(LOCKPIDS);
+	open($LOCKPIDS,'>',$lockpids) || die "Can't signal lock!!!";
+	print $LOCKPIDS join(' ',@alive);
+	close($LOCKPIDS);
 	$self->unlock('PFILE');
 	
 	# count is redundant related to pids, but count will guard any pids modification
 	$self->unlock('CFILE');
 	
 	# And last, waking up others!
-	local(*LOCKWAIT);
+	my($LOCKWAIT);
 	my($lockwait)=$self->shlock('WFILE');
-	open(LOCKWAIT,'<',$lockwait) || die "Can't signal lock!!!";
-	$line=<LOCKWAIT>;
-	close(LOCKWAIT);
+	open($LOCKWAIT,'<',$lockwait) || die "Can't signal lock!!!";
+	$line=<$LOCKWAIT>;
+	close($LOCKWAIT);
 	$self->unlock('WFILE');
 	
 	$line=''  unless(defined($line));
@@ -372,11 +372,11 @@ sub unlock($$) {
 }
 
 sub uptime() {
-	local(*UPTIME);
-	open(UPTIME,'/proc/uptime') || die "Can't get lock!!!";
-	my(@statdata)=stat(UPTIME);
-	my($uptime)=<UPTIME>;
-	close(UPTIME);
+	my($UPTIME);
+	open($UPTIME,'/proc/uptime') || die "Can't get lock!!!";
+	my(@statdata)=stat($UPTIME);
+	my($uptime)=<$UPTIME>;
+	close($UPTIME);
 	my(@upti)=split(/ /,$uptime);
 
 	return int($statdata[9]-$upti[0]);

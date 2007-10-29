@@ -9,13 +9,14 @@ use Fcntl qw(:flock SEEK_END O_RDWR O_CREAT);
 use Time::HiRes qw(sleep);
 use DB_File;
 use POSIX qw(strftime);
+use FindBin;
 
 use vars qw($LOCKNLOGDIR $LOCKNLOGMASK);
 use vars qw($LOGFILENAME $WHITELIST $GRAYLIST $GRAYGROUPLIST $BLACKLIST $LOCKFILE);
 use vars qw($BASEDELAY $BLACKDELAY $WHITEDELAY $GRAYBASE $RENEWLEASE);
 
 $LOCKNLOGMASK=0755;
-$LOCKNLOGDIR='logs';
+$LOCKNLOGDIR="$FindBin::Bin/logs";
 $LOGFILENAME='logfile';
 $WHITELIST='whitelist';
 $GRAYLIST='graylist';
@@ -33,6 +34,7 @@ sub logStartNDelay($$;$$$$);
 sub logDelay($;$);
 sub logEntry($$$;$$$);
 sub getPrintableNow();
+sub getPrintableDate($);
 sub doExt($$;$);
 sub matchIP($$);
 sub JobIdGenerator();
@@ -71,18 +73,18 @@ sub matchIP($$) {
 	my($file,$ip)=@_;
 	my($status)=undef;
 	
-	local(*LIST);
+	my($LIST);
 	
-	if(open(LIST,'<',$file)) {
+	if(open($LIST,'<',$file)) {
 		my($line);
-		while($line=<LIST>) {
+		while($line=<$LIST>) {
 			chomp($line);
 			if($line eq $ip) {
 				$status=1;
 				last;
 			}
 		}
-		close(LIST);
+		close($LIST);
 	}
 	
 	return $status;
@@ -92,15 +94,15 @@ sub logDelay($;$) {
 	my($ip,$infix)=@_;
 	my($delay)=undef;
 	
-	local(*LOCK);
+	my($LOCK);
 	
 	$infix=defined($infix)?('_'.$infix):'';
 	
 	my($lockfile)=doExt($LOCKFILE,$infix);
 	
-	if(open(LOCK,'>',$lockfile)) {
+	if(open($LOCK,'>',$lockfile)) {
 		# It is like a semaphore
-		flock(LOCK,LOCK_EX);
+		flock($LOCK,LOCK_EX);
 		
 		my($justnow)=time;
 		
@@ -159,7 +161,7 @@ sub logDelay($;$) {
 			untie %IP;
 		}
 
-		close(LOCK);
+		close($LOCK);
 	}
 	
 	return $delay;
@@ -185,27 +187,32 @@ sub logEntry($$$;$$$) {
 		$stage =~ tr/\n\t/ /s;
 		$misc =~ tr/\n\t/ /s;
 	
-		local(*LOGFILE);
+		my($LOGFILE);
 		
 		my($logfilename)=doExt($LOGFILENAME,$infix);
 		
-		if(open(LOGFILE,'>>',$logfilename)) {
-			flock(LOGFILE,LOCK_EX);
-			print LOGFILE $now,"\t",$ip,"\t",$name,"\t",$jobid,"\t",$stage,"\t",$misc,"\n";
-			close(LOGFILE);
+		if(open($LOGFILE,'>>',$logfilename)) {
+			flock($LOGFILE,LOCK_EX);
+			print $LOGFILE $now,"\t",$ip,"\t",$name,"\t",$jobid,"\t",$stage,"\t",$misc,"\n";
+			close($LOGFILE);
 		}
 	}
 }
 
 sub getPrintableNow() {
-	my $now = time();
+	return getPrintableDate(time());
+}
+
+sub getPrintableDate($) {
+	my $now = @_;
 
 	# We need to munge the timezone indicator to add a colon between the hour and minute part
-	my $tz = strftime("%z", localtime($now));
+	my @loc = localtime($now);
+	my $tz = strftime("%z", @loc);
 	$tz =~ s/(\d{2})(\d{2})/$1:$2/;
 
 	# ISO8601
-	return strftime("%Y-%m-%dT%H:%M:%S", localtime($now)) . $tz;
+	return strftime("%Y-%m-%dT%H:%M:%S", @loc) . $tz;
 }
 
 sub JobIdGenerator()
