@@ -204,7 +204,7 @@ sub getPrintableNow() {
 }
 
 sub getPrintableDate($) {
-	my $now = @_;
+	my($now)= @_;
 
 	# We need to munge the timezone indicator to add a colon between the hour and minute part
 	my @loc = localtime($now);
