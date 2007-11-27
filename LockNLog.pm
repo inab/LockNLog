@@ -61,7 +61,9 @@ sub logStartNDelay($$;$$$$) {
 sub doExt($$;$) {
 	my($name,$infix,$suffix)=@_;
 	
-	mkpath($LOCKNLOGDIR,1,$LOCKNLOGMASK);
+	eval {
+		mkpath($LOCKNLOGDIR,1,$LOCKNLOGMASK);
+	};
 	
 	$infix=''  unless(defined($infix));
 	$suffix='.txt'  unless(defined($suffix));
