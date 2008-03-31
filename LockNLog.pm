@@ -34,7 +34,7 @@ sub logStartNDelay($$;$$$$);
 sub logDelay($;$);
 sub logEntry($$$;$$$);
 sub getPrintableNow();
-sub getPrintableDate($);
+sub getPrintableDate(;$);
 sub doExt($$;$);
 sub matchIP($$);
 sub JobIdGenerator();
@@ -202,12 +202,13 @@ sub logEntry($$$;$$$) {
 }
 
 sub getPrintableNow() {
-	return getPrintableDate(time());
+	return getPrintableDate();
 }
 
-sub getPrintableDate($) {
+sub getPrintableDate(;$) {
 	my($now)= @_;
-
+	
+	$now=time()  unless(defined($now) && $now ne '');
 	# We need to munge the timezone indicator to add a colon between the hour and minute part
 	my @loc = localtime($now);
 	my $tz = strftime("%z", @loc);
