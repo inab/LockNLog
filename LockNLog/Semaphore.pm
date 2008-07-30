@@ -8,6 +8,9 @@ use Fcntl qw(:flock SEEK_END O_RDWR O_CREAT);
 use File::Path;
 
 use Carp qw(croak);
+
+use FindBin;
+use lib "$FindBin::Bin/..";
 use LockNLog;
 
 ###################
