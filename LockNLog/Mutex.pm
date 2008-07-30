@@ -31,7 +31,9 @@ sub mutex($&) {
 	my($self,$block)=@_;
 	$self->Wait();
 	eval $block->();
+	my($exp)=$@;
 	$self->Signal();
+	die "$exp\t...propagated"  if(defined($exp) && length($exp)>0);
 }
 
 1;

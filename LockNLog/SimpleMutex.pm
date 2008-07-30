@@ -33,7 +33,9 @@ sub mutex($&) {
 	my($lockmode)=defined($self->{lockmode})?LOCK_EX:LOCK_SH;
 	flock($FH,$lockmode);
 	eval $block->();
+	my($exp)=$@;
 	close($FH);
+	die "$exp\t...propagated"  if(defined($exp) && length($exp)>0);
 }
 
 1;
