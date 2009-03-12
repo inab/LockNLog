@@ -62,7 +62,7 @@ sub doExt($$;$) {
 	my($name,$infix,$suffix)=@_;
 	
 	eval {
-		mkpath($LOCKNLOGDIR,1,$LOCKNLOGMASK);
+		mkpath($LOCKNLOGDIR,undef,$LOCKNLOGMASK);
 	};
 	
 	$infix=''  unless(defined($infix));
