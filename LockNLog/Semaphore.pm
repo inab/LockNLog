@@ -100,15 +100,16 @@ sub Init($$$) {
 	if(!defined($newlock) && -e $lockcount && ((-s $lockcount) == 2)) {
 		my($storedcount)=undef;
 		my($runcount)=undef;
-		open($LOCKCOUNT,'<',$lockcount) || die "Can't get lock!!!";
+		open($LOCKCOUNT,'+<',$lockcount) || die "Can't get lock!!!";
 		my($lect)='';
 		read($LOCKCOUNT,$lect,2);
-		close($LOCKCOUNT);
+		seek($LOCKCOUNT,0,0);
 		$storedcount=unpack('S',$lect);
 
 		# First checks
 		if($storedcount>$maxcount) {
 			$newlock=1;
+			close($LOCKCOUNT);
 		} else {
 			# let's count running instances
 			open($LOCKPIDS,'<',$lockpids) || die "Can't get lock!!!";
@@ -163,7 +164,12 @@ sub Init($$$) {
 				print $LOCKWAIT join(' ',@alive);
 				close($LOCKWAIT);
 			}
-
+			
+			# Corrupted counter due reboot perhaps, so fix it!
+			if((scalar(@alive)+$storedcount)!=$maxcount) {
+				print $LOCKCOUNT pack('S',($maxcount-scalar(@alive)));
+			}
+			close($LOCKCOUNT);
 			# And some alive ones could be signaled!
 			kill(18,@alive)  if($storedcount>0);
 		}
