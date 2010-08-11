@@ -4,6 +4,7 @@ package LockNLog::Semaphore;
 
 use strict;
 
+use Date::Parse;
 use Fcntl qw(:flock SEEK_END O_RDWR O_CREAT);
 use File::Path;
 
@@ -381,14 +382,51 @@ sub unlock($$) {
 }
 
 sub uptime() {
-	my($UPTIME);
-	open($UPTIME,'/proc/uptime') || die "Can't get lock!!!";
-	my(@statdata)=stat($UPTIME);
-	my($uptime)=<$UPTIME>;
-	close($UPTIME);
-	my(@upti)=split(/ /,$uptime);
+	# Getting the ellapsed time of init process (1)
+	my $elapStr = `ps -o etime -p 1 | tail -n 1`;
+	# Trimming spaces
+	$elapStr =~ s/^ +//;
+	$elapStr =~ s/ +$//;
+	if(length($elapStr)>0) {
+		my $elap = 0;
+		my @elapTok = split(/-/,$elapStr,2);
+		if(scalar(@elapTok)>1) {
+			# Translating days to seconds
+			$elap += shift(@elapTok)*86400;
+		}
 
-	return int($statdata[9]-$upti[0]);
+		my @hms = split(/:/,$elapTok[0],3);
+		$elap += int($hms[0])*3600+int($hms[1])*60+int($hms[2]);
+
+		return $elap;
+	} elsif(-f '/proc/uptime') {
+		my($UPTIME);
+		open($UPTIME,'/proc/uptime') || die "Can't get lock!!!";
+		my(@statdata)=stat($UPTIME);
+		my($uptime)=<$UPTIME>;
+		close($UPTIME);
+		my(@upti)=split(/ /,$uptime);
+
+		return int($statdata[9]-$upti[0]);
+	} else {
+		my $now = time();
+		my $rebootDateStr = `last | grep '^reboot' | head -n 1 | cut -b 37-`;
+		$rebootDateStr = `last | tail -n 1 | cut -b 13-`  unless(defined($rebootDateStr) && length($rebootDateStr)>0);
+
+		if(defined($rebootDateStr) && length($rebootDateStr)>0) {
+			my $rebootDate = str2time($rebootDateStr);
+			# This case is almost unneeded, because str2time has into account timestamps without years
+			if($rebootDate>$now) {
+				my @nowComp = localtime($now);
+				$rebootDate = str2time($rebootDateStr.' '.($nowComp[5]+1900-1));
+			}
+
+			return $now-$rebootDate;
+		} else {
+			return 0;
+		}
+
+	}
 }
 
 1;
