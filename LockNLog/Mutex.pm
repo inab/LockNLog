@@ -12,17 +12,17 @@ use base qw(LockNLog::Semaphore);
 ##############
 # Prototypes #
 ##############
-sub new($;$$);
+sub new($;$$$);
 
 sub mutex($&);
 
 ###############
 # Constructor #
 ###############
-sub new($;$$) {
-	my($class,$maxcount,$ejt)=@_;
+sub new($;$$$) {
+	my($class,$maxcount,$ejt,$prefix)=@_;
 	
-	my($self)=$class->SUPER::new($maxcount,$ejt);
+	my($self)=$class->SUPER::new($maxcount,$ejt,$prefix);
 	
 	return bless($self,$class);
 }

@@ -26,7 +26,7 @@ my($LOCKUPTIMEFILE)='semuptime.txt';
 ##############
 # Prototypes #
 ##############
-sub new($;$$);
+sub new($;$$$);
 
 sub Init($$$);
 sub Wait($);
@@ -40,13 +40,15 @@ sub unlock($$);
 ###############
 # Constructor #
 ###############
-sub new($;$$) {
-	my($class,$maxcount,$ejt)=@_;
+sub new($;$$$) {
+	my($class,$maxcount,$ejt,$prefix)=@_;
 	
 	my($self)={};
+
+	$prefix=''  unless(defined($prefix));
 	
 	# Creating lock files (if they do not exist)
-	my(@knockers)=startKnockers($self,$LOCKCOUNTFILE,$LOCKPIDSFILE,$LOCKWAITFILE,$LOCKUPTIMEFILE);
+	my(@knockers)=startKnockers($self,$prefix.$LOCKCOUNTFILE,$prefix.$LOCKPIDSFILE,$prefix.$LOCKWAITFILE,$prefix.$LOCKUPTIMEFILE);
 	
 	croak("Unable to create lock files!!!!")  if(scalar(@knockers) eq 0);
 	($self->{'CFILE'},$self->{'PFILE'},$self->{'WFILE'},$self->{'UFILE'})=@knockers;
