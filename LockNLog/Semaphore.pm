@@ -18,6 +18,7 @@ use LockNLog;
 # Local variables #
 ###################
 
+my($LOCKMAXCOUNTFILE)='semmaxcount.bin';
 my($LOCKCOUNTFILE)='semcount.bin';
 my($LOCKPIDSFILE)='sempids.txt';
 my($LOCKWAITFILE)='semwait.txt';
@@ -48,10 +49,10 @@ sub new($;$$$) {
 	$prefix=''  unless(defined($prefix));
 	
 	# Creating lock files (if they do not exist)
-	my(@knockers)=startKnockers($self,$prefix.$LOCKCOUNTFILE,$prefix.$LOCKPIDSFILE,$prefix.$LOCKWAITFILE,$prefix.$LOCKUPTIMEFILE);
+	my(@knockers)=startKnockers($self,$prefix.$LOCKMAXCOUNTFILE,$prefix.$LOCKCOUNTFILE,$prefix.$LOCKPIDSFILE,$prefix.$LOCKWAITFILE,$prefix.$LOCKUPTIMEFILE);
 	
 	croak("Unable to create lock files!!!!")  if(scalar(@knockers) eq 0);
-	($self->{'CFILE'},$self->{'PFILE'},$self->{'WFILE'},$self->{'UFILE'})=@knockers;
+	($self->{'MCFILE'},$self->{'CFILE'},$self->{'PFILE'},$self->{'WFILE'},$self->{'UFILE'})=@knockers;
 	
 	bless($self,$class);
 	
@@ -73,15 +74,17 @@ sub Init($$$) {
 	$self->{sleeptime}=$ejt;
 	
 	my($LOCKUPTIME);
+	my($LOCKMAXCOUNT);
+	my($LOCKWAIT);
 	my($LOCKCOUNT);
 	my($LOCKPIDS);
-	my($LOCKWAIT);
 	
 	# Files to be locked down
 	my($lockuptime)=$self->exlock('UFILE');
+	my($lockmaxcount)=$self->exlock('MCFILE');
 	my($lockwait)=$self->exlock('WFILE');
-	my($lockpids)=$self->exlock('PFILE');
 	my($lockcount)=$self->exlock('CFILE');
+	my($lockpids)=$self->exlock('PFILE');
 	
 	my($newlock)=undef;
 	my($uptime)=uptime();
@@ -92,7 +95,7 @@ sub Init($$$) {
 		my($storeduptime)=<$LOCKUPTIME>;
 		close($LOCKUPTIME);
 		
-		unless(($storeduptime-10)<=$uptime && $uptime<=($storeduptime+10)) {
+		unless(($storeduptime-5)<=$uptime && $uptime<=($storeduptime+5)) {
 			$newlock=1;
 		}
 	} else {
@@ -100,26 +103,34 @@ sub Init($$$) {
 	}
 	
 	# Second, file corruption detection
-	if(!defined($newlock) && -e $lockcount && ((-s $lockcount) == 2)) {
+	if(!defined($newlock) && -e $lockcount && ((-s $lockcount) == 2) && -e $lockmaxcount && ((-s $lockmaxcount) == 2)) {
 		my($storedcount)=undef;
+		my($storedmaxcount)=undef;
 		my($runcount)=undef;
-		open($LOCKCOUNT,'+<',$lockcount) || die "Can't get lock!!!";
+		
+		open($LOCKMAXCOUNT,'+<',$lockmaxcount) || die "Can't get lock!!!";
 		my($lect)='';
+		read($LOCKMAXCOUNT,$lect,2);
+		seek($LOCKMAXCOUNT,0,0);
+		$storedmaxcount=unpack('S',$lect);
+		
+		open($LOCKCOUNT,'+<',$lockcount) || die "Can't get lock!!!";
+		$lect='';
 		read($LOCKCOUNT,$lect,2);
 		seek($LOCKCOUNT,0,0);
 		$storedcount=unpack('S',$lect);
-
+		
 		# First checks
-		if($storedcount>$maxcount) {
+		if($storedcount > $storedmaxcount) {
+			# At this point we cannot reuse the infrastructure, so new lock infrastructure
 			$newlock=1;
-			close($LOCKCOUNT);
 		} else {
 			# let's count running instances
 			open($LOCKPIDS,'<',$lockpids) || die "Can't get lock!!!";
 			my($line)=<$LOCKPIDS>;
 			close($LOCKPIDS);
 
-			$line='' unless(defined($line));
+			$line=''  unless(defined($line));
 			my($zombie)=0;
 			my(@alive)=();
 			foreach my $pid (split(/ /,$line)) {
@@ -136,12 +147,14 @@ sub Init($$$) {
 				open($LOCKPIDS,'>',$lockpids) || die "Can't update lock!!!";
 				print $LOCKPIDS join(' ',@alive);
 				close($LOCKPIDS);
-				$storedcount+=$zombie;
+				# $storedcount+=$zombie;
+				$storedcount = $maxcount - scalar(@alive);
+				print STDERR "STOREDAFTER ",$storedcount,"\n";
 
 				# Let's write again
-				open($LOCKCOUNT,'>',$lockcount) || die "Can't update lock!!!";
+				#open($LOCKCOUNT,'>',$lockcount) || die "Can't update lock!!!";
 				print $LOCKCOUNT pack('S',$storedcount);
-				close($LOCKCOUNT);
+				seek($LOCKCOUNT,0,0);
 			}
 
 			# The ones which are waiting
@@ -169,13 +182,18 @@ sub Init($$$) {
 			}
 			
 			# Corrupted counter due reboot perhaps, so fix it!
-			if((scalar(@alive)+$storedcount)!=$maxcount) {
-				print $LOCKCOUNT pack('S',($maxcount-scalar(@alive)));
+			#if((scalar(@alive)+$storedcount)!=$maxcount) {
+			#	print $LOCKCOUNT pack('S',($maxcount-scalar(@alive)));
+			#}
+			
+			if($storedmaxcount != $maxcount) {
+				print $LOCKMAXCOUNT pack('S',$maxcount);
 			}
-			close($LOCKCOUNT);
 			# And some alive ones could be signaled!
 			kill(18,@alive)  if($storedcount>0);
 		}
+		close($LOCKCOUNT);
+		close($LOCKMAXCOUNT);
 	} else {
 		$newlock=1;
 	}
@@ -184,6 +202,10 @@ sub Init($$$) {
 		open($LOCKUPTIME,'>',$lockuptime) || die "Can't create lock!!!";
 		print $LOCKUPTIME $uptime;
 		close($LOCKUPTIME);
+		
+		open($LOCKMAXCOUNT,'>',$lockmaxcount) || die "Can't create lock!!!";
+		print $LOCKMAXCOUNT pack('S',$maxcount);
+		close($LOCKMAXCOUNT);
 		
 		open($LOCKCOUNT,'>',$lockcount) || die "Can't create lock!!!";
 		print $LOCKCOUNT pack('S',$maxcount);
@@ -195,9 +217,10 @@ sub Init($$$) {
 		open($LOCKWAIT,'>',$lockwait) || die "Can't create lock!!!";
 		close($LOCKWAIT);
 	}
-	$self->unlock('CFILE');
 	$self->unlock('PFILE');
+	$self->unlock('CFILE');
 	$self->unlock('WFILE');
+	$self->unlock('MCFILE');
 	$self->unlock('UFILE');
 	
 	return $self;
@@ -385,7 +408,8 @@ sub unlock($$) {
 
 sub uptime() {
 	# Getting the ellapsed time of init process (1)
-	my $elapStr = `ps -o etime -p 1 | tail -n 1`;
+	my $elapStr = `LC_ALL=C ps -o etime -p 1 | tail -n 1`;
+	my $time = time();
 	# Trimming spaces
 	$elapStr =~ s/^ +//;
 	$elapStr =~ s/ +$//;
@@ -398,18 +422,21 @@ sub uptime() {
 		}
 
 		my @hms = split(/:/,$elapTok[0],3);
+		unshift(@hms,'0')  if(scalar(@hms)==1);
+		unshift(@hms,'0')  if(scalar(@hms)==2);
 		$elap += int($hms[0])*3600+int($hms[1])*60+int($hms[2]);
-
-		return $elap;
+		
+		return $time-$elap;
 	} elsif(-f '/proc/uptime') {
 		my($UPTIME);
 		open($UPTIME,'/proc/uptime') || die "Can't get lock!!!";
 		my(@statdata)=stat($UPTIME);
 		my($uptime)=<$UPTIME>;
 		close($UPTIME);
-		my(@upti)=split(/ /,$uptime);
-
-		return int($statdata[9]-$upti[0]);
+		$time=time();
+		my(@upti)=split(/ /,$uptime,2);
+		
+		return $time-int($statdata[9]-$upti[0]);
 	} else {
 		my $now = time();
 		my $rebootDateStr = `last | grep '^reboot' | head -n 1 | cut -b 37-`;
@@ -423,7 +450,8 @@ sub uptime() {
 				$rebootDate = str2time($rebootDateStr.' '.($nowComp[5]+1900-1));
 			}
 
-			return $now-$rebootDate;
+			#return $now-$rebootDate;
+			return $rebootDate;
 		} else {
 			return 0;
 		}
