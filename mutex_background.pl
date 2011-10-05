@@ -2,6 +2,8 @@
 
 use strict;
 
+use FindBin;
+use lib "$FindBin::Bin";
 use LockNLog::Mutex;
 
 # We have to ignore pleas from the children
