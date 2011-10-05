@@ -3,6 +3,7 @@
 use strict;
 
 use FindBin;
+use POSIX qw(setsid);
 use lib "$FindBin::Bin";
 use LockNLog::Mutex;
 
