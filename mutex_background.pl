@@ -13,17 +13,20 @@ if(scalar(@ARGV)>1) {
 	# We have to ignore pleas from the children
 	$SIG{CHLD}='IGNORE';
 
+	# As we are using dumb forks, we must close connections to the parent process
+	# close $_ for map { /^(?:ARGV|std(?:err|out|in)|STD(?:ERR|OUT|IN))$/ ? () : *{$::{$_}}{IO} || () } keys %::;
+	foreach my $FH ( map { /^(?:ARGV|STDERR|stderr)$/ ? () : *{$::{$_}}{IO} || () } keys %::) {
+		close($FH);
+	}
+	
+	open(STDIN,'<','/dev/null');
+	open(STDOUT,'>','/dev/null');
+	#open(STDERR,'>','/dev/null');
 	my($pid)=fork();
 
 	if(defined($pid)) {
 		if($pid==0) {
-			# As we are using dumb forks, we must close connections to the parent process
-			close(STDIN);
-			open(STDIN,'<','/dev/null');
-			close(STDOUT);
-			open(STDOUT,'>','/dev/null');
-			close(STDERR);
-			open(STDERR,'>','/dev/null');
+			
 			setsid();
 			
 			my($mutex)=LockNLog::Mutex->new($concurr);
@@ -39,4 +42,8 @@ if(scalar(@ARGV)>1) {
 	} else {
 		die "ERROR: Unable to fork process!!!!";
 	}
+} else {
+	print STDERR <<EOF ;
+Usage: $0 {mutex_size} {program to run in mutex}
+EOF
 }
