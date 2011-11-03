@@ -16,6 +16,7 @@ if(scalar(@ARGV)>1) {
 	# As we are using dumb forks, we must close connections to the parent process
 	# close $_ for map { /^(?:ARGV|std(?:err|out|in)|STD(?:ERR|OUT|IN))$/ ? () : *{$::{$_}}{IO} || () } keys %::;
 	foreach my $FH ( map { /^(?:ARGV|STDERR|stderr)$/ ? () : *{$::{$_}}{IO} || () } keys %::) {
+	# foreach my $FH ( map { /^(?:ARGV)$/ ? () : *{$::{$_}}{IO} || () } keys %::) {
 		close($FH);
 	}
 	
