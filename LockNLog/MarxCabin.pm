@@ -8,8 +8,7 @@ use Data::Dumper;
 use Date::Parse;
 use Fcntl qw(:flock SEEK_END O_RDWR O_CREAT);
 use File::Path;
-use POSIX qw(setsid);
-
+use POSIX qw(setsid :sys_wait_h);
 use Carp qw(croak);
 
 use FindBin;
@@ -198,11 +197,47 @@ sub init($$$$$) {
 	return $self;
 }
 
+my $nChildren = undef;
+my $maxChildren = undef;
+my $ejt = undef;
+my %children = ();
+
+sub REAPER {
+	# don't change $! and $? outside handler
+	local ($!, $?);
+	my $child;
+	# If a second child dies while in the signal handler caused by the
+	# first death, we won't get another signal. So must loop here else
+	# we will leave the unreaped child as a zombie. And the next time
+	# two children die we get another zombie. And so on.
+	#print STDERR $nChildren,"\n";
+	$child = waitpid(-1, WNOHANG);
+	return  if($child==-1);
+	return  unless(exists($children{$child}));
+	$nChildren--;
+	delete($children{$child});
+}
+
 sub daemon($$) {
 	my($self,$marxStatDir)=@_;
 	local $/;
 	
-	# $SIG{CHLD}=
+	$nChildren = 0;
+	$maxChildren = $self->{maxcount};
+	$ejt = $self->{sleeptime};
+	
+	# The signal handler
+	my $termHandler = sub {
+		$SIG{CHLD}='IGNORE';
+		
+		kill(9,keys(%children));
+		
+		exit 1;
+	};
+	$SIG{INT}=$SIG{TERM}=$SIG{QUIT}=$termHandler;
+	
+	$SIG{CHLD}=\&REAPER;
+	
 	my $last = undef;
 	do {
 		# First, who is queued?
@@ -218,11 +253,18 @@ sub daemon($$) {
 		
 		# Giving up!
 		if(scalar(@wpids)==0) {
-			open($LOCKPID,'>',$lockpid) || die "Can't wait lock!!!";
-			close($LOCKPID);
-			$self->unlock('WFILE');
-			$self->unlock('PFILE');
-			$last=0;
+			# There are unfinished children. Wait for them!
+			if($nChildren>0) {
+				$self->unlock('WFILE');
+				$self->unlock('PFILE');
+				sleep($ejt);
+			} else {
+				open($LOCKPID,'>',$lockpid) || die "Can't wait lock!!!";
+				close($LOCKPID);
+				$self->unlock('WFILE');
+				$self->unlock('PFILE');
+				$last=0;
+			}
 		} else {
 			# Look for a candidate
 			my $wcount = 0;
@@ -262,8 +304,29 @@ sub daemon($$) {
 						$self->unlock('PFILE');
 						$doFree=undef;
 						
+						# Are there free slots?
+						while($nChildren >= $maxChildren) {
+							print STDERR $nChildren,"\n";
+							sleep($ejt);
+						}
+							print STDERR $nChildren,"\n";
+						
 						# And now, run the program!
-						system(@{$p_params});
+						$nChildren++;
+						my $pid = fork();
+						if(defined($pid)) {
+							if($pid==0) {
+								# Becoming the program, of course!
+								exec(@{$p_params});
+							} else {
+								# Let's store the PID in the shared array
+								$children{$pid}=undef;
+							}
+						} else {
+							# So low on resources that it cannot be spawned?!?!?!
+							system(@{$p_params});
+							$nChildren--;
+						}
 						
 						last;
 					}
