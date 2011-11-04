@@ -211,11 +211,12 @@ sub REAPER {
 	# we will leave the unreaped child as a zombie. And the next time
 	# two children die we get another zombie. And so on.
 	#print STDERR $nChildren,"\n";
-	$child = waitpid(-1, WNOHANG);
-	return  if($child==-1);
-	return  unless(exists($children{$child}));
-	$nChildren--;
-	delete($children{$child});
+	while(($child = waitpid(-1, WNOHANG))!=-1) {
+	#return  if($child==-1);
+		next  unless(exists($children{$child}));
+		$nChildren--;
+		delete($children{$child});
+	}
 }
 
 sub daemon($$) {
