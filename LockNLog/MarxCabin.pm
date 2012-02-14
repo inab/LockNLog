@@ -181,7 +181,7 @@ sub init($$$$$) {
 				exit $self->daemon($marxStatDir);
 			} else {
 				# As the parent, register the daemon
-				open($LOCKPID,'>>',$lockpid) || die "Can't create lock!!!";
+				open($LOCKPID,'>',$lockpid) || die "Can't create lock!!!";
 				print $LOCKPID $pid;
 				close($LOCKPID);
 			}
