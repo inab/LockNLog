@@ -149,7 +149,7 @@ sub Init($$$) {
 				close($LOCKPIDS);
 				# $storedcount+=$zombie;
 				$storedcount = $maxcount - scalar(@alive);
-				print STDERR "STOREDAFTER ",$storedcount,"\n";
+				#print STDERR "STOREDAFTER ",$storedcount,"\n";
 
 				# Let's write again
 				#open($LOCKCOUNT,'>',$lockcount) || die "Can't update lock!!!";
